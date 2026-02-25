@@ -13,12 +13,14 @@ export class OwnershipGuard implements CanActivate {
       return false;
     }
 
-    const project = await this.projectsService.findOne(
-      Number(request.params.projectId),
-    );
     if (user.role.roleName === 'Admin') {
       return true;
     }
+
+    const project = await this.projectsService.findOne(
+      Number(request.params.projectId),
+    );
+
     if (project.managerId == user.id) {
       return true;
     }

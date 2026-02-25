@@ -9,7 +9,6 @@ export class ProjectEntity {
   description: string;
   managerId: number;
   manager: UserEntity;
-  users: UserEntity[];
   dateOfCreation: Date;
   dateOfModified: Date;
   stateId: number;
@@ -22,7 +21,6 @@ export class ProjectEntity {
     description: string,
     managerId: number,
     manager: UserEntity,
-    users: UserEntity[],
     dateOfCreation: Date,
     dateOfModified: Date,
     stateId: number,
@@ -34,7 +32,6 @@ export class ProjectEntity {
     this.description = description;
     this.managerId = managerId;
     this.manager = manager;
-    this.users = users;
     this.dateOfCreation = dateOfCreation;
     this.dateOfModified = dateOfModified;
     this.stateId = stateId;
@@ -44,8 +41,8 @@ export class ProjectEntity {
 
   public static fromModel(
     model: Project & { manager: User & { role: Role } } & {
-      users: (User & { role: Role })[];
-    } & { state: StateOfProject } & {
+      state: StateOfProject;
+    } & {
       tasks: (Task & { user: User & { role: Role } } & {
         state: StateOfProjectEntity;
       })[];
@@ -57,7 +54,6 @@ export class ProjectEntity {
       model.description,
       model.managerId,
       UserEntity.fromModel(model.manager),
-      model.users.map((user) => UserEntity.fromModel(user)),
       model.dateOfCreation,
       model.dateOfModified,
       model.stateId,

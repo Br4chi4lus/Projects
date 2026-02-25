@@ -6,6 +6,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -20,8 +21,11 @@ import {
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiQuery,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { PaginationQueryDto } from '../dtos/pagination.query.dto';
+import { PaginatedResultDto } from '../dtos/paginated.result.dto';
 
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
@@ -36,12 +40,20 @@ export class ProjectUsersController {
   @UseGuards(ParticipantGuard)
   @ApiOkResponse({ description: 'Users successfully retrieved' })
   @ApiNotFoundResponse({ description: 'Project not found' })
+  @ApiQuery({ name: 'pageNumber', example: 1 })
+  @ApiQuery({ name: 'pageSize', enum: [5, 10, 15, 25] })
   public async findAll(
     @Param('projectId', new ParseIntPipe()) projectId: number,
-  ): Promise<UserDTO[]> {
-    const users = await this.projectUsersService.findAll(projectId);
+    @Query() paginationQueryDto: PaginationQueryDto,
+  ): Promise<PaginatedResultDto<UserDTO>> {
+    const [users, count] = await this.projectUsersService.findAll(
+      projectId,
+      paginationQueryDto,
+    );
 
-    return users.map((user) => UserDTO.fromEntity(user));
+    const userDtos = users.map((user) => UserDTO.fromEntity(user));
+
+    return new PaginatedResultDto(userDtos, count);
   }
 
   @Post()

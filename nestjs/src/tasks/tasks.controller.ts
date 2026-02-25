@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
@@ -23,9 +24,13 @@ import {
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiQuery,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ParticipantGuard } from '../auth/guards/participant.guard';
+import { PaginationQueryDto } from '../dtos/pagination.query.dto';
+import { PaginatedResultDto } from '../dtos/paginated.result.dto';
+import { TaskEntity } from './entities/task.entity';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({
@@ -52,12 +57,21 @@ export class TasksController {
   @UseGuards(ParticipantGuard)
   @ApiOkResponse({ description: 'Successfully retrieved tasks' })
   @ApiNotFoundResponse({ description: 'Project not found' })
+  @ApiQuery({ name: 'pageNumber', example: 1 })
+  @ApiQuery({ name: 'pageSize', enum: [5, 10, 15, 25] })
   public async findTasksByProjectId(
     @Param('projectId', new ParseIntPipe()) projectId: number,
-  ): Promise<TaskDTO[]> {
-    const tasks = await this.tasksService.getTasks(projectId);
+    @Query() paginationQueryDto: PaginationQueryDto,
+  ): Promise<PaginatedResultDto<TaskDTO>> {
+    const [tasks, count] = await this.tasksService.getTasks(
+      projectId,
+      paginationQueryDto,
+    );
 
-    return tasks.map((task) => TaskDTO.fromEntity(task));
+    return new PaginatedResultDto(
+      tasks.map((task) => TaskDTO.fromEntity(task)),
+      count,
+    );
   }
 
   @Get(':taskId')

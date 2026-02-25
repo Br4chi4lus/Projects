@@ -4,11 +4,12 @@ import { CreateProjectDTO } from './dtos/create.project.dto';
 import { ProjectEntity } from './entities/project.entity';
 import { StateOfProjectDTO } from './dtos/state-of-project.dto';
 import { StateOfProjectEntity } from './entities/state-of-project.entity';
+import { PaginationQueryDto } from '../dtos/pagination.query.dto';
 
 @Injectable()
 export class ProjectsService {
   constructor(private prismaService: PrismaService) {}
-
+  // zmienic
   async createProject(dto: CreateProjectDTO, managerId: number) {
     try {
       const project = await this.prismaService.project.create({
@@ -16,17 +17,9 @@ export class ProjectsService {
           name: dto.name,
           description: dto.description,
           managerId: managerId,
-          users: {
-            connect: dto.userIds.map((id) => ({ id: id })),
-          },
         },
         include: {
           manager: {
-            include: {
-              role: true,
-            },
-          },
-          users: {
             include: {
               role: true,
             },
@@ -54,34 +47,42 @@ export class ProjectsService {
     }
   }
 
-  async findAll(): Promise<ProjectEntity[]> {
-    const projects = await this.prismaService.project.findMany({
-      include: {
-        manager: {
-          include: {
-            role: true,
-          },
-        },
-        users: {
-          include: {
-            role: true,
-          },
-        },
-        state: true,
-        tasks: {
-          include: {
-            user: {
-              include: {
-                role: true,
-              },
+  async findAll(
+    paginationQueryDto: PaginationQueryDto,
+  ): Promise<[ProjectEntity[], number]> {
+    const skip =
+      (paginationQueryDto.pageNumber - 1) * paginationQueryDto.pageSize;
+    const take = paginationQueryDto.pageSize;
+    const [projects, totalCount] = await this.prismaService.$transaction([
+      this.prismaService.project.findMany({
+        include: {
+          manager: {
+            include: {
+              role: true,
             },
-            state: true,
+          },
+          state: true,
+          tasks: {
+            include: {
+              user: {
+                include: {
+                  role: true,
+                },
+              },
+              state: true,
+            },
           },
         },
-      },
-    });
+        take: take,
+        skip: skip,
+      }),
+      this.prismaService.project.count(),
+    ]);
 
-    return projects.map((project) => ProjectEntity.fromModel(project));
+    return [
+      projects.map((project) => ProjectEntity.fromModel(project)),
+      totalCount,
+    ];
   }
 
   public async findOne(id: number): Promise<ProjectEntity> {
@@ -91,11 +92,6 @@ export class ProjectsService {
       },
       include: {
         manager: {
-          include: {
-            role: true,
-          },
-        },
-        users: {
           include: {
             role: true,
           },
@@ -147,11 +143,6 @@ export class ProjectsService {
         },
         include: {
           manager: {
-            include: {
-              role: true,
-            },
-          },
-          users: {
             include: {
               role: true,
             },

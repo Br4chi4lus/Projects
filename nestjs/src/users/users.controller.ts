@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -23,8 +24,11 @@ import {
   ApiBearerAuth,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiQuery,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { PaginationQueryDto } from '../dtos/pagination.query.dto';
+import { PaginatedResultDto } from '../dtos/paginated.result.dto';
 
 @Controller('users')
 @ApiBearerAuth()
@@ -38,9 +42,14 @@ export class UsersController {
   @Get()
   @Roles('Manager', 'Admin')
   @ApiOkResponse({ description: 'Returns all users' })
-  public async getUsers(): Promise<UserDTO[]> {
-    const users: UserEntity[] = await this.usersService.findAll();
-    return users.map<UserDTO>((user) => UserDTO.fromEntity(user));
+  @ApiQuery({ name: 'pageNumber', example: 1 })
+  @ApiQuery({ name: 'pageSize', enum: [5, 10, 15, 25] })
+  public async getUsers(
+    @Query() paginationQueryDto: PaginationQueryDto,
+  ): Promise<PaginatedResultDto<UserDTO>> {
+    const [users, count] = await this.usersService.findAll(paginationQueryDto);
+    const userDtos = users.map<UserDTO>((user) => UserDTO.fromEntity(user));
+    return new PaginatedResultDto(userDtos, count);
   }
 
   @Put(':userId')
