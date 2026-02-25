@@ -5,6 +5,7 @@ import { CreateTaskDTO } from './dtos/create.task.dto';
 
 import { TaskEntity } from './entities/task.entity';
 import { ProjectUsersService } from '../project-users/project-users.service';
+import { PaginationQueryDto } from '../dtos/pagination.query.dto';
 
 @Injectable()
 export class TasksService {
@@ -14,26 +15,41 @@ export class TasksService {
     private readonly projectUsersService: ProjectUsersService,
   ) {}
 
-  public async getTasks(projectId: number) {
-    const tasks = await this.prismaService.task.findMany({
-      where: {
-        projectId: projectId,
-      },
-      include: {
-        user: {
-          include: {
-            role: true,
-          },
+  public async getTasks(
+    projectId: number,
+    paginationQueryDto: PaginationQueryDto,
+  ): Promise<[TaskEntity[], number]> {
+    const skip =
+      (paginationQueryDto.pageNumber - 1) * paginationQueryDto.pageSize;
+    const take = paginationQueryDto.pageSize;
+    const [tasks, count] = await this.prismaService.$transaction([
+      this.prismaService.task.findMany({
+        where: {
+          projectId: projectId,
         },
-        state: true,
-      },
-    });
+        include: {
+          user: {
+            include: {
+              role: true,
+            },
+          },
+          state: true,
+        },
+        skip: skip,
+        take: take,
+      }),
+      this.prismaService.task.count({
+        where: {
+          projectId: projectId,
+        },
+      }),
+    ]);
 
     if (!tasks) {
       throw new NotFoundException('Project not found');
     }
 
-    return tasks.map((task) => TaskEntity.fromModel(task));
+    return [tasks.map((task) => TaskEntity.fromModel(task)), count];
   }
 
   public async getTaskById(
@@ -73,10 +89,11 @@ export class TasksService {
     projectId: number,
   ): Promise<TaskEntity> {
     try {
-      const users = await this.projectUsersService.findAll(projectId);
-      if (!users.some((user) => user.id === createTaskDto.userId)) {
-        throw new NotFoundException('User is not asign to the project');
-      }
+      const user = await this.projectUsersService.findOne(
+        projectId,
+        createTaskDto.userId,
+      );
+
       const task = await this.prismaService.task.create({
         data: {
           name: createTaskDto.name,

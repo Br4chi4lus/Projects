@@ -13,8 +13,6 @@ export class ProjectDTO {
   description: string;
   @ApiProperty()
   manager: UserDTO;
-  @ApiProperty({ type: [UserDTO] })
-  users: UserDTO[];
   @ApiProperty()
   state: StateOfProjectDTO;
   @ApiProperty()
@@ -29,7 +27,6 @@ export class ProjectDTO {
     name: string,
     description: string,
     manager: UserDTO,
-    users: UserDTO[],
     state: StateOfProjectDTO,
     dateOfCreation: Date,
     dateOfModified: Date,
@@ -39,7 +36,6 @@ export class ProjectDTO {
     this.name = name;
     this.description = description;
     this.manager = manager;
-    this.users = users;
     this.state = state;
     this.dateOfCreation = dateOfCreation;
     this.dateOfModified = dateOfModified;
@@ -52,7 +48,6 @@ export class ProjectDTO {
       projectEntity.name,
       projectEntity.description,
       UserDTO.fromEntity(projectEntity.manager),
-      projectEntity.users.map((user) => UserDTO.fromEntity(user)),
       projectEntity.state,
       projectEntity.dateOfCreation,
       projectEntity.dateOfModified,

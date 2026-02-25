@@ -6,6 +6,7 @@ import {
   ParseIntPipe,
   Post,
   Put,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -24,8 +25,11 @@ import {
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiQuery,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { PaginationQueryDto } from '../dtos/pagination.query.dto';
+import { PaginatedResultDto } from '../dtos/paginated.result.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({
@@ -51,9 +55,18 @@ export class ProjectsController {
   @Roles('Admin', 'Manager')
   @Get()
   @ApiOkResponse({ description: 'Projects have been successfully retrieved' })
-  async findAll(): Promise<ProjectDTO[]> {
-    const projects = await this.projectService.findAll();
-    return projects.map((project) => ProjectDTO.fromEntity(project));
+  @ApiQuery({ name: 'pageNumber', example: 1 })
+  @ApiQuery({ name: 'pageSize', enum: [5, 10, 15, 25] })
+  async findAll(
+    @Query() paginationQueryDto: PaginationQueryDto,
+  ): Promise<PaginatedResultDto<ProjectDTO>> {
+    const [projects, count] =
+      await this.projectService.findAll(paginationQueryDto);
+    const projectDtos = projects.map((project) =>
+      ProjectDTO.fromEntity(project),
+    );
+
+    return new PaginatedResultDto(projectDtos, count);
   }
   @Get('states')
   async getAllStatesOfProject(): Promise<StateOfProjectDTO[]> {
