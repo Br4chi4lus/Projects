@@ -1,50 +1,67 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDTO } from './dtos/create.project.dto';
 import { ProjectEntity } from './entities/project.entity';
-import { StateOfProjectDTO } from './dtos/state-of-project.dto';
 import { StateOfProjectEntity } from './entities/state-of-project.entity';
 import { PaginationQueryDto } from '../dtos/pagination.query.dto';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class ProjectsService {
   constructor(private prismaService: PrismaService) {}
-  // zmienic
   async createProject(dto: CreateProjectDTO, managerId: number) {
-    try {
-      const project = await this.prismaService.project.create({
-        data: {
-          name: dto.name,
-          description: dto.description,
-          managerId: managerId,
-        },
-        include: {
-          manager: {
-            include: {
-              role: true,
-            },
-          },
-          state: true,
-          tasks: {
-            include: {
-              user: {
-                include: {
-                  role: true,
-                },
-              },
-              state: true,
-            },
-          },
-        },
-      });
-      return ProjectEntity.fromModel(project);
-    } catch (error) {
-      if (error.message.toLowerCase().includes('not found')) {
-        throw new NotFoundException('Some users have not been found');
-      } else {
-        throw error;
-      }
+    const manager = await this.prismaService.user.findUnique({
+      where: {
+        id: managerId,
+      },
+    });
+
+    if (!manager) {
+      throw new NotFoundException('Manager not found.');
     }
+    const users = await this.prismaService.user.findMany({
+      where: {
+        id: {
+          in: dto.userIds,
+        },
+      },
+    });
+
+    if (users.length != dto.userIds.length) {
+      throw new NotFoundException('Some users do not exist.');
+    }
+
+    const project = await this.prismaService.project.create({
+      data: {
+        name: dto.name,
+        description: dto.description,
+        managerId: managerId,
+      },
+      include: {
+        manager: {
+          include: {
+            role: true,
+          },
+        },
+        state: true,
+        tasks: {
+          include: {
+            user: {
+              include: {
+                role: true,
+              },
+            },
+            state: true,
+          },
+        },
+      },
+    });
+
+    return ProjectEntity.fromModel(project);
   }
 
   async findAll(
@@ -132,7 +149,6 @@ export class ProjectsService {
     if (!stateReturn) {
       throw new NotFoundException('State not found');
     }
-
     try {
       const project = await this.prismaService.project.update({
         where: {
@@ -163,9 +179,13 @@ export class ProjectsService {
 
       return ProjectEntity.fromModel(project);
     } catch (error) {
-      if (error.message.toLowerCase().includes('not found')) {
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('Project not found');
-      } else throw error;
+      }
+      throw error;
     }
   }
 
