@@ -4,10 +4,16 @@ import { AuthService } from './auth.service';
 import { JwtModule } from '@nestjs/jwt';
 import { jwtConstants } from '../users/constants';
 import { UsersService } from '../users/users.service';
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { PermissionsService } from '../permissions/permissions.service';
+import { PermissionsModule } from '../permissions/permissions.module';
+import { ParticipantGuard } from './guards/participant.guard';
+import { OwnershipGuard } from './guards/ownership.guard';
+import { UsersModule } from '../users/users.module';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -16,15 +22,17 @@ import { RolesGuard } from './guards/roles.guard';
       secret: jwtConstants.secret,
       signOptions: { expiresIn: '1h' },
     }),
+    PermissionsModule,
+    UsersModule,
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
-    UsersService,
-    PrismaService,
     JwtStrategy,
     JwtAuthGuard,
     RolesGuard,
+    ParticipantGuard,
+    OwnershipGuard,
   ],
 })
 export class AuthModule {}

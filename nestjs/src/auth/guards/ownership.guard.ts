@@ -1,30 +1,17 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { ProjectsService } from '../../projects/projects.service';
+import { PermissionsService } from '../../permissions/permissions.service';
 
 @Injectable()
 export class OwnershipGuard implements CanActivate {
-  constructor(private projectsService: ProjectsService) {}
+  constructor(private readonly permissionsService: PermissionsService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    if (!user) {
-      return false;
-    }
-
-    if (user.role.roleName === 'Admin') {
-      return true;
-    }
-
-    const project = await this.projectsService.findOne(
+    return this.permissionsService.isOwnerOrAdmin(
       Number(request.params.projectId),
+      user,
     );
-
-    if (project.managerId == user.id) {
-      return true;
-    }
-
-    return false;
   }
 }
