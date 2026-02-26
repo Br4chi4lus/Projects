@@ -1,5 +1,5 @@
 import { UsersController } from './users.controller';
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from './users.service';
 import { UserEntity } from './entities/user.entity';
 import { UserDTO } from './dtos/user.dto';

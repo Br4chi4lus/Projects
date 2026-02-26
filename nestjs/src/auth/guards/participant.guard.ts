@@ -1,45 +1,17 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { ProjectsService } from '../../projects/projects.service';
-import { UsersService } from '../../users/users.service';
-import { PrismaService } from '../../prisma.service';
-import { ProjectUsersService } from '../../project-users/project-users.service';
+import { PermissionsService } from '../../permissions/permissions.service';
 
 @Injectable()
 export class ParticipantGuard implements CanActivate {
-  constructor(
-    private readonly projectsService: ProjectsService,
-    private readonly projectUserService: ProjectUsersService,
-  ) {}
+  constructor(private readonly permissionsService: PermissionsService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    if (!user) {
-      return false;
-    }
-
-    if (user.role.roleName === 'Admin') {
-      return true;
-    }
-
-    const project = await this.projectsService.findOne(
+    return await this.permissionsService.isParticipantOrOwnerOrAdmin(
       Number(request.params.projectId),
+      user,
     );
-
-    if (project.managerId == user.id) {
-      return true;
-    }
-
-    const userProject = await this.projectUserService.findUserProject(
-      project.id,
-      user.id,
-    );
-
-    if (!userProject) {
-      return false;
-    }
-
-    return true;
   }
 }

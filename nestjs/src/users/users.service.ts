@@ -1,4 +1,4 @@
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { UserEntity } from './entities/user.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { RoleEntity } from './entities/role.entity';

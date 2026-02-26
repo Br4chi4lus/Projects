@@ -1,5 +1,5 @@
 import { UsersService } from './users.service';
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { UserEntity } from './entities/user.entity';
 import { PrismaPromise } from '@prisma/client';
 import { RoleEntity } from './entities/role.entity';
