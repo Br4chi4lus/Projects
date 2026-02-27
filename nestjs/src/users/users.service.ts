@@ -3,6 +3,7 @@ import { UserEntity } from './entities/user.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { RoleEntity } from './entities/role.entity';
 import { PaginationQueryDto } from '../dtos/pagination.query.dto';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 @Injectable()
 export class UsersService {
   constructor(private prismaService: PrismaService) {}
@@ -52,7 +53,7 @@ export class UsersService {
       },
     });
     if (!user) {
-      return undefined;
+      throw new NotFoundException('User not Found');
     }
     return UserEntity.fromModel(user);
   }
@@ -90,7 +91,7 @@ export class UsersService {
     });
 
     if (!roleReturn) {
-      throw new NotFoundException('Role does not exist');
+      throw new NotFoundException('Role not found');
     }
     try {
       const user = await this.prismaService.user.update({
@@ -106,7 +107,10 @@ export class UsersService {
       });
       return UserEntity.fromModel(user);
     } catch (error) {
-      if (error.message.includes('not found')) {
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
         throw new NotFoundException('User not found');
       } else {
         throw error;
@@ -118,23 +122,29 @@ export class UsersService {
     passwordHash: string,
     userId: number,
   ): Promise<UserEntity> {
-    const user = await this.prismaService.user.update({
-      where: {
-        id: userId,
-      },
-      data: {
-        passwordHash: passwordHash,
-      },
-      include: {
-        role: true,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User does not exist');
+    try {
+      const user = await this.prismaService.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          passwordHash: passwordHash,
+        },
+        include: {
+          role: true,
+        },
+      });
+      return UserEntity.fromModel(user);
+    } catch (error) {
+      if (
+        error instanceof PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException('User not Found');
+      } else {
+        throw error;
+      }
     }
-
-    return UserEntity.fromModel(user);
   }
 
   async findOneById(id: number): Promise<UserEntity> {
@@ -148,7 +158,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException('User does not exist');
+      throw new NotFoundException('User not found');
     }
 
     return UserEntity.fromModel(user);

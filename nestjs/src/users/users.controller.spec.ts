@@ -5,6 +5,7 @@ import { UserEntity } from './entities/user.entity';
 import { UserDTO } from './dtos/user.dto';
 import { RoleEntity } from './entities/role.entity';
 import { RoleDTO } from './dtos/role.dto';
+import { PaginationQueryDto } from '../dtos/pagination.query.dto';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -12,55 +13,70 @@ describe('UsersController', () => {
   let usersService: UsersService;
 
   beforeEach(() => {
-    prismaService = new PrismaService();
+    prismaService = {
+      $transaction: jest.fn(),
+      user: {
+        findMany: jest.fn(),
+        count: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
+      role: {
+        findFirst: jest.fn(),
+      },
+    } as unknown as PrismaService;
     usersService = new UsersService(prismaService);
     controller = new UsersController(usersService);
   });
 
+  function createUserEntity(id: number) {
+    return {
+      id: id,
+      email: 'test@test.com',
+      passwordHash: '123456',
+      firstName: 'name',
+      lastName: 'name',
+      dateOfBirth: new Date(),
+      dateOfRegistration: new Date(),
+      roleId: 1,
+      role: {
+        roleId: 1,
+        role: 'name',
+      } as unknown as RoleEntity,
+    } as unknown as UserEntity;
+  }
+
   describe('findAll', () => {
-    it('Should return an array of users(with one element)', async () => {
+    // arrange
+    const userIds = Array.from({ length: 10 }, (_, i) => i + 1);
+    const paginationQueryDto = {
+      pageSize: 5,
+      pageNumber: 1,
+    } as unknown as PaginationQueryDto;
+    it('Should return an array of users and totalCount', async () => {
+      const users = userIds
+        .filter((id) => id <= paginationQueryDto.pageSize)
+        .map((id) => createUserEntity(id));
       const date = new Date();
       jest
         .spyOn(usersService, 'findAll')
-        .mockImplementationOnce(() =>
-          Promise.resolve([
-            new UserEntity(
-              1,
-              'abc@example.com',
-              'john',
-              'doe',
-              date,
-              date,
-              'abc',
-              1,
-              new RoleEntity(1, 'Admin'),
-            ),
-          ]),
-        );
+        .mockResolvedValueOnce([users, users.length]);
 
-      const response = await controller.getUsers();
+      // act
+      const response = await controller.getUsers(paginationQueryDto);
 
-      expect(response.length).toBe(1);
-      expect(response[0]).toEqual(
-        new UserDTO(
-          1,
-          'abc@example.com',
-          'john',
-          'doe',
-          date,
-          new RoleDTO('Admin'),
-        ),
-      );
+      // assert
+      expect(response.totalCount).toBe(paginationQueryDto.pageSize);
+      expect(response.items.length).toBe(paginationQueryDto.pageSize);
     });
 
-    it('Should return an empty array', async () => {
-      jest
-        .spyOn(usersService, 'findAll')
-        .mockImplementationOnce(() => Promise.resolve([]));
+    it('Should return an empty array and count = 0', async () => {
+      jest.spyOn(usersService, 'findAll').mockResolvedValueOnce([[], 0]);
 
-      const response = await controller.getUsers();
+      const response = await controller.getUsers(paginationQueryDto);
 
-      expect(response.length).toBe(0);
+      expect(response.totalCount).toBe(0);
+      expect(response.items.length).toBe(0);
     });
   });
 });
