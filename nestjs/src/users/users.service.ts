@@ -1,6 +1,6 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { UserEntity } from './entities/user.entity';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { RoleEntity } from './entities/role.entity';
 import { PaginationQueryDto } from '../dtos/pagination.query.dto';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
@@ -65,19 +65,27 @@ export class UsersService {
     dateOfBirth: Date,
     passwordHash: string,
   ): Promise<UserEntity> {
-    const user = await this.prismaService.user.create({
-      data: {
-        email: email,
-        firstName: firstName,
-        lastName: lastName,
-        dateOfBirth: new Date(dateOfBirth),
-        passwordHash: passwordHash,
-      },
-      include: {
-        role: true,
-      },
-    });
-    return UserEntity.fromModel(user);
+    try{
+      const user = await this.prismaService.user.create({
+        data: {
+          email: email,
+          firstName: firstName,
+          lastName: lastName,
+          dateOfBirth: new Date(dateOfBirth),
+          passwordHash: passwordHash,
+        },
+        include: {
+          role: true,
+        },
+      });
+      return UserEntity.fromModel(user);
+    }
+    catch (error) {
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new BadRequestException('Email already exists');
+      } else throw error;
+    }
+
   }
 
   async updateRole(userId: number, role: string): Promise<UserEntity> {

@@ -34,34 +34,40 @@ export class ProjectsService {
     if (users.length != dto.userIds.length) {
       throw new NotFoundException('Some users do not exist.');
     }
-
-    const project = await this.prismaService.project.create({
-      data: {
-        name: dto.name,
-        description: dto.description,
-        managerId: managerId,
-      },
-      include: {
-        manager: {
-          include: {
-            role: true,
-          },
+    try{
+      const project = await this.prismaService.project.create({
+        data: {
+          name: dto.name,
+          description: dto.description,
+          managerId: managerId,
         },
-        state: true,
-        tasks: {
-          include: {
-            user: {
-              include: {
-                role: true,
-              },
+        include: {
+          manager: {
+            include: {
+              role: true,
             },
-            state: true,
+          },
+          state: true,
+          tasks: {
+            include: {
+              user: {
+                include: {
+                  role: true,
+                },
+              },
+              state: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    return ProjectEntity.fromModel(project);
+      return ProjectEntity.fromModel(project);
+    } catch (error){
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2003') {
+        throw new BadRequestException('Invalid relation');
+      } else throw error;
+    }
+
   }
 
   async findAll(
@@ -190,14 +196,22 @@ export class ProjectsService {
   }
 
   public async updateDateOfModify(projectId: number) {
-    const project = await this.prismaService.project.update({
-      where: {
-        id: projectId,
-      },
-      data: {
-        dateOfModified: new Date(),
-      },
-    });
+    try {
+      const project = await this.prismaService.project.update({
+        where: {
+          id: projectId,
+        },
+        data: {
+          dateOfModified: new Date(),
+        },
+      });
+    } catch (error){
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new NotFoundException('Project not found');
+      } else {
+        throw error;
+      }
+    }
   }
 
   public async findAllStates() {

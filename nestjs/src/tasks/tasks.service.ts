@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateTaskDTO } from './dtos/create.task.dto';
@@ -6,6 +6,7 @@ import { CreateTaskDTO } from './dtos/create.task.dto';
 import { TaskEntity } from './entities/task.entity';
 import { ProjectUsersService } from '../project-users/project-users.service';
 import { PaginationQueryDto } from '../dtos/pagination.query.dto';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class TasksService {
@@ -19,6 +20,10 @@ export class TasksService {
     projectId: number,
     paginationQueryDto: PaginationQueryDto,
   ): Promise<[TaskEntity[], number]> {
+    const project = await this.projectService.findOne(projectId);
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
     const skip =
       (paginationQueryDto.pageNumber - 1) * paginationQueryDto.pageSize;
     const take = paginationQueryDto.pageSize;
@@ -44,10 +49,6 @@ export class TasksService {
         },
       }),
     ]);
-
-    if (!tasks) {
-      throw new NotFoundException('Project not found');
-    }
 
     return [tasks.map((task) => TaskEntity.fromModel(task)), count];
   }
@@ -94,31 +95,39 @@ export class TasksService {
         createTaskDto.userId,
       );
 
-      const task = await this.prismaService.task.create({
-        data: {
-          name: createTaskDto.name,
-          description: createTaskDto.description,
-          userId: createTaskDto.userId,
-          projectId: projectId,
-        },
-        include: {
-          user: {
-            include: {
-              role: true,
-            },
-          },
-          state: true,
-        },
-      });
+      if (!user) throw new NotFoundException('User not found');
 
-      await this.projectService.updateDateOfModify(projectId);
+      const [task, project] = await this.prismaService.$transaction([
+        this.prismaService.task.create({
+          data: {
+            name: createTaskDto.name,
+            description: createTaskDto.description,
+            userId: createTaskDto.userId,
+            projectId: projectId,
+          },
+          include: {
+            user: {
+              include: {
+                role: true,
+              },
+            },
+            state: true,
+          },
+        }),
+        this.prismaService.project.update({
+          where: {
+            id: projectId,
+          },
+          data: {
+            dateOfModified: new Date(),
+          }
+        }),
+      ]);
 
       return TaskEntity.fromModel(task);
     } catch (error) {
-      if (
-        error.message.toLowerCase().includes('foreign key constraint violated')
-      ) {
-        throw new NotFoundException('Project or User not found');
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2003'){
+        throw new BadRequestException('Invalid relation');
       } else {
         throw error;
       }
@@ -130,12 +139,6 @@ export class TasksService {
     taskId: number,
   ): Promise<TaskEntity> {
     try {
-      const task = await this.prismaService.task.findFirst({
-        where: {
-          AND: [{ id: taskId }, { projectId: projectId }],
-        },
-      });
-
       const deletedTask = await this.prismaService.task.delete({
         where: {
           id: taskId,
@@ -153,11 +156,11 @@ export class TasksService {
       return TaskEntity.fromModel(deletedTask);
     } catch (error) {
       if (
-        error.message.toLowerCase().includes('foreign key constraint violated')
+        error instanceof PrismaClientKnownRequestError && error.code === 'P2025'
       ) {
         throw new NotFoundException('Project not found');
-      } else if (error.message.toLowerCase().includes('not found')) {
-        throw new NotFoundException('Task not found');
+      } else if (error instanceof PrismaClientKnownRequestError && error.code === 'P2003') {
+        throw new BadRequestException('Foreign key constraint');
       } else {
         throw error;
       }
@@ -203,7 +206,7 @@ export class TasksService {
 
       return TaskEntity.fromModel(task);
     } catch (error) {
-      if (error.message.toLowerCase().includes('not found')) {
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
         throw new NotFoundException('Task not found');
       } else throw error;
     }
