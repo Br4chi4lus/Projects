@@ -1,55 +1,82 @@
 ## Table of contents
 * [About the project](#About-the-project)
 * [Technologies](#Technologies)
-* [Setup](#Setup)
+* [Features](#Features)
+* [Tests](#Tests)
+* [Quick start](#Quick-start)
+* [To do](#To-do)
 
 ## About the project
-Simple REST API and frontend that helps managing projects and tasks.
+A full-stack project management application built with NestJS, Next.js, and PostgreSQL.
+The application allows managing projects, tasks, and users with role-based access control.
+
+The backend follows a layered architecture (controller–service–repository)
+and is covered with unit tests.
 ## Technologies
-* Node.js v22.11.0
-* Backend is created with nestjs and prisma(ORM)
-* Frontend is created with nextjs - React framework
+* Node.js (developed on v22, compatible with LTS)
+* Backend: NestJS 10, Prisma 6
+* PostgreSQL
+* Swagger (OpenAPI)
+* Jest
+* Frontend: Next.js (React)
 * Docker
-## Setup
-Clone this repository:
-```
+## Features
+* JWT Authentication
+* Role-based authorization
+* Projects and tasks management
+* Pagination in backend
+* Swagger API documentation
+* Database migrations and seed data
+* Dockerized development environment
+## Tests
+* Jest testing framework
+* Unit tests for controllers and services
+* Prisma client mocked to isolate business logic from the database
+## Quick start
+
+### Backend
+Clone repository and start database:
+```bash
 git clone https://github.com/Br4chi4lus/projects.git
-```
-### Backend:
-Run docker containers:
-```
 cd projects
-docker build -t tasks .
-docker compose up
+docker compose up -d db
 ```
-At first the app container will stop. You need to update database(do not stop db container):
-```
-cd nestjs
-```
-Windows CMD:
-```
-set DATABASE_URL=postgresql://postgres:password@localhost:5432/tasks && npx prisma migrate dev
-```
+Prepare environment, run migrations and seed data:  
 Linux:
-```
-DATABASE_URL="postgresql://postgres:password@localhost:5432/tasks" npx prisma migrate dev --name init
-```
-Both:
-```
+```bash
+cd nestjs
+mv .env.example .env
+npm install
+npx prisma migrate dev
 npm run seed
 ```
-And run app container(docker desktop) or stop all containers and:
-```
-docker compose up
-```
-once again.
-### Frontend:
-```
-cd frontend
+Windows:
+```md
+cd nestjs
+ren .env.example .env
 npm install
-npm run dev
+npx prisma migrate dev
+npm run seed
+```
+Start backend application:
+```
+docker compose up --build
+```
+Swagger is available at:
+```
+http://localhost:8080/api/swagger
 ```
 To change role of first user you need to use pgadmin. Credentials are in docker-compose.yml file. Connecting to database with pgAdmin in given docker-compose.yml:
 * Host - db
 * user - postgres
 * password - password
+### Frontend
+```
+cd frontend
+npm install
+npm run dev
+```
+## To do
+* Add pagination to frontend
+* Improve frontend UI
+* Add integration tests 
